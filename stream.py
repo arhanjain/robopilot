@@ -1,6 +1,14 @@
+import time
+
 import numpy as np
 import matplotlib.pyplot as plt
+import mediapipe as mp
 import cv2
+
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+
+model_path = "./hand_landmarker.task"
 
 # Orient y down, x right, z inwards
 fc = 500
@@ -23,7 +31,6 @@ R2 = np.array([[0, 0, -1, -x_trans],
                [0, 1, 0, 0],
                [1, 0, 0, -z_trans]])
 P2 = K2 @ R2
-
 def pixelToWorld(uv1, uv2):
     # input should be homogenous
     # normalized?
@@ -33,22 +40,31 @@ def pixelToWorld(uv1, uv2):
     X /= X[3]
     return X
 
-# Testing
-uv1 = np.array([[wc/2],
-                [hc/2],
-                [1]])
-uv2 = np.array([[w/2],
-                [h/2],
-                [1]])
-X = pixelToWorld(uv1, uv2)
-print("X")
-print(X)
-x1 = np.dot(P1[:3],X)
-x2 = np.dot(P2[:3],X)
-# Again, put in homogeneous form before using them
-x1 /= x1[2]
-x2 /= x2[2]
-print("x1")
-print(x1)
-print("x2")
-print(x2)
+### Streaming
+BaseOptions = mp.tasks.BaseOptions
+HandLandmarker = mp.tasks.vision.HandLandmarker
+HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
+HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
+VisionRunningMode = mp.tasks.vision.RunningMode
+
+def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
+    print('hand landmarker result: {}'.format(result))
+    
+options = HandLandmarkerOptions(
+    base_options=BaseOptions(model_asset_path='/path/to/model.task'),
+    running_mode=VisionRunningMode.LIVE_STREAM,
+    result_callback=print_result)
+cap = cv2.VideoCapture()
+if not cap.isOpened():
+    print("Cannot open camera")
+with HandLandmarker.create_from_options(options) as landmarker:
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to get frame")
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+        landmarker.detect_async(mp_image, int(round(time.time()*1000)))
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    cap.release()
+    cv2.destroyAllWindows()
