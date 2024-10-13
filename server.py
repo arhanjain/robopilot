@@ -6,8 +6,10 @@ args = argparser.parse_args()
 import zerorpc
 
 from wrapper import WrappedEnv
+from tmobile import NetworkSlicer
 
 if __name__ == "__main__":
+    network_slice = NetworkSlicer()
     env = None
     match args.env:
         case "mujoco":

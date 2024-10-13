@@ -84,5 +84,5 @@ class NetworkSlicer:
         print("deleted")
 
 
-t = NetworkSlicer()
-t.close()
+# t = NetworkSlicer()
+# t.close()

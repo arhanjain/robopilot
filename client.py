@@ -15,6 +15,7 @@ from mediapipe.framework.formats import landmark_pb2
 import zerorpc
 from threading import Thread
 from pynput import keyboard
+from tmobile import NetworkSlicer
 
 ### Streaming
 BaseOptions = mp.tasks.BaseOptions
@@ -112,7 +113,7 @@ def on_press(key):
         reset[0] = True
 
 if __name__ == "__main__":
-
+    network_slice = NetworkSlicer()
     client = zerorpc.Client()
     client.connect("tcp://127.0.0.1:4242")
     teleop = Teleop()
