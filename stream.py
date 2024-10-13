@@ -16,9 +16,6 @@ from threading import Thread
 
 ### Streaming
 BaseOptions = mp.tasks.BaseOptions
-HandLandmarker = mp.tasks.vision.HandLandmarker
-HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
-HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
 GestureRecognizer = mp.tasks.vision.GestureRecognizer
 GestureRecognizerOptions = mp.tasks.vision.GestureRecognizerOptions
 GestureRecognizerResult = mp.tasks.vision.GestureRecognizerResult
@@ -29,9 +26,6 @@ class Teleop:
         self._gesture = None
         self._pose = None
         self.frame = None
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
-            print("Cannot open camera")
         self.t = Thread(target=self.launch_pose_tracker)
         self.t.start()
         # self.launch_pose_tracker()
@@ -41,9 +35,12 @@ class Teleop:
             base_options=BaseOptions(model_asset_path=c.GESTURE_PATH), 
             running_mode=VisionRunningMode.LIVE_STREAM,
             result_callback=self.set_gesture)
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Cannot open camera")
         with GestureRecognizer.create_from_options(options) as recognizer:
             while True:
-                ret, frame = self.cap.read()
+                ret, frame = cap.read()
                 if not ret:
                     print("Failed to get frame")
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
@@ -60,6 +57,7 @@ class Teleop:
         return self._gesture
 
     def set_gesture(self, result: GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
+        print("Results")
         total_x = 0
         total_y = 0
         total_z = 0

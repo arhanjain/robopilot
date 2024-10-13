@@ -11,9 +11,9 @@ class WrappedFrankaSim:
         self.franka.set_ee_position(action)
         self.franka.step()
         if self.trajectory is None:
-            self.trajectory = np.array([[None, action]])
+            self.trajectory = [[None, action]]
         else:
-            self.trajectory = np.concatenate((self.trajectory, np.array([[self.trajectory[-1, 1], action]])), axis=0)
+            self.trajectory.append([None, action])
         
     def reset(self):
         self.franka = FrankaSim()

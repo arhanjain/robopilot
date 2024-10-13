@@ -10,7 +10,7 @@ import time
 from threading import Thread
 import zerorpc
 
-from wrapper import WrappedFrankaSim
+# from wrapper import WrappedFrankaSim
 
 # Integration timestep in seconds. This corresponds to the amount of time the joint
 # velocities will be integrated for to obtain the desired joint positions.
@@ -169,7 +169,7 @@ class FrankaSim:
 
 
 if __name__ == "__main__":
-    server = zerorpc.Server(WrappedFrankaSim())
+    server = zerorpc.Server(FrankaSim())
     server.bind("tcp://0.0.0.0:4242")
     server.run()
 
