@@ -5,15 +5,17 @@ args = argparser.parse_args()
 
 import zerorpc
 
+from wrapper import WrappedEnv
+
 if __name__ == "__main__":
     env = None
     match args.env:
         case "mujoco":
             from envs.mujoco import MujocoSim
-            env = MujocoSim()
+            env = WrappedEnv(env=MujocoSim)
         case "real":
             from envs.real import RealWorld
-            env = RealWorld()
+            env = WrappedEnv(env=RealWorld)
         case _:
             raise ValueError("Unknown env: {}".format(args.env))
             

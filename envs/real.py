@@ -8,7 +8,7 @@ class RealWorld:
     def reset(self):
         return self.env.reset() 
 
-    def step(self, action):
+    def step(self, action, ee_state):
         if action is None or (action[0] == 0 and action[1] == 1 and action[2] == 2):
             return 
         action = action + [np.pi,0,0, 0]
