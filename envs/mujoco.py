@@ -1,160 +1,159 @@
 import mujoco
 import mujoco.viewer
-import numpy as np
 import time
+import numpy as np
 
 # Integration timestep in seconds. This corresponds to the amount of time the joint
 # velocities will be integrated for to obtain the desired joint positions.
-integration_dt: float = 1.0
+integration_dt: float = 0.1
 
 # Damping term for the pseudoinverse. This is used to prevent joint velocities from
 # becoming too large when the Jacobian is close to singular.
 damping: float = 1e-4
 
+# Gains for the twist computation. These should be between 0 and 1. 0 means no
+# movement, 1 means move the end-effector to the target in one integration step.
+Kpos: float = 0.95
+Kori: float = 0.95
+
 # Whether to enable gravity compensation.
 gravity_compensation: bool = True
 
 # Simulation timestep in seconds.
-dt: float = 0.002
+dt: float = 0.005
 
-# Maximum allowable joint velocity in rad/s. Set to 0 to disable.
-max_angvel = 0.0
+# Nullspace P gain.
+Kn = np.asarray([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0])
+
+# Maximum allowable joint velocity in rad/s.
+# max_angvel = 0.785
+max_angvel = 1.5
 
 class MujocoSim:
     def __init__(self):
         assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
         # Load the model and data.
-        model = mujoco.MjModel.from_xml_path("./mjctrl/franka_emika_panda/scene.xml")
-        data = mujoco.MjData(model)
-        self.data = data
-        self.model = model
+        self.model = mujoco.MjModel.from_xml_path("./mjctrl/franka_emika_panda/scene.xml")
+        self.data = mujoco.MjData(self.model)
 
-        # Override the simulation timestep.
-        model.opt.timestep = dt
+        # Enable gravity compensation. Set to 0.0 to disable.
+        self.model.body_gravcomp[:] = float(gravity_compensation)
+        self.model.opt.timestep = dt
 
-        # End-effector site we wish to control, in this case a site attached to the last
-        # link (wrist_3_link) of the robot.
-        self.site_id = model.site("attachment_site").id
+        # End-effector site we wish to control.
+        site_name = "attachment_site"
+        self.site_id = self.model.site(site_name).id
 
-        # Name of bodies we wish to apply gravity compensation to.
-        body_names = [
-            "shoulder_link",
-            "upper_arm_link",
-            "forearm_link",
-            "wrist_1_link",
-            "wrist_2_link",
-            "wrist_3_link",
-        ]
-        body_ids = [model.body(name).id for name in body_names]
-        if gravity_compensation:
-            model.body_gravcomp[body_ids] = 1.0
-
-        # Get the dof and actuator ids for the joints we wish to control.
+        # Get the dof and actuator ids for the joints we wish to control. These are copied
+        # from the XML file. Feel free to comment out some joints to see the effect on
+        # the controller.
         joint_names = [
-            "shoulder_pan",
-            "shoulder_lift",
-            "elbow",
-            "wrist_1",
-            "wrist_2",
-            "wrist_3",
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
         ]
-        self.dof_ids = np.array([model.joint(name).id for name in joint_names])
-        # Note that actuator names are the same as joint names in this case.
-        self.actuator_ids = np.array([model.actuator(name).id for name in joint_names])
+        self.dof_ids = np.array([self.model.joint(name).id for name in joint_names])
+        self.actuator_ids = np.array([self.model.actuator(name).id for name in joint_names])
 
         # Initial joint configuration saved as a keyframe in the XML file.
-        self.key_id = model.key("home").id
+        key_name = "home"
+        self.key_id = self.model.key(key_name).id
+        self.q0 = self.model.key(key_name).qpos
 
         # Mocap body we will control with our mouse.
-        self.mocap_id = model.body("target").mocapid[0]
+        mocap_name = "target"
+        self.mocap_id = self.model.body(mocap_name).mocapid[0]
 
         # Pre-allocate numpy arrays.
-        self.jac = np.zeros((6, model.nv))
+        self.jac = np.zeros((6, self.model.nv))
         self.diag = damping * np.eye(6)
-        self.error = np.zeros(6)
-        self.error_pos = self.error[:3]
-        self.error_ori = self.error[3:]
+        self.eye = np.eye(self.model.nv)
+        self.twist = np.zeros(6)
         self.site_quat = np.zeros(4)
         self.site_quat_conj = np.zeros(4)
         self.error_quat = np.zeros(4)
-        
-        self.viewer = mujoco.viewer.launch_passive(
-            model=model, 
-            data=data, 
-            show_left_ui=False, 
-            show_right_ui=False
-            )
 
-        # Reset the simulation to the initial keyframe.
-        mujoco.mj_resetDataKeyframe(model, data, self.key_id)
 
-        # Initialize the camera view to that of the free camera.
-        mujoco.mjv_defaultFreeCamera(model, self.viewer.cam)
+        self.viewer  = mujoco.viewer.launch_passive(
+                model=self.model,
+                data=self.data,
+                show_left_ui=False,
+                show_right_ui=False,
+                )
 
-        # Toggle site frame visualization.
+        # Reset the simulation.
+        mujoco.mj_resetDataKeyframe(self.model, self.data, self.key_id)
+
+        # Reset the free camera.
+        mujoco.mjv_defaultFreeCamera(self.model, self.viewer.cam)
+
+        # Enable site frame visualization.
         self.viewer.opt.frame = mujoco.mjtFrame.mjFRAME_SITE
-
-
-    # Define a trajectory for the end-effector site to follow.
-    def circle(self, t: float, r: float, h: float, k: float, f: float) -> np.ndarray:
-        """Return the (x, y) coordinates of a circle with radius r centered at (h, k)
-        as a function of time t and frequency f."""
-        x = r * np.cos(2 * np.pi * f * t) + h
-        y = r * np.sin(2 * np.pi * f * t) + k
-        return np.array([x, y])
 
         
     def step(self):
         data = self.data
+        twist = self.twist
+        site_quat = self.site_quat
+        site_quat_conj = self.site_quat_conj
+        error_quat = self.error_quat
+        mocap_id = self.mocap_id
+        jac = self.jac
         model = self.model
-        dof_ids = self.dof_ids
+        diag = self.diag
+        eye = self.eye
+        q0 = self.q0
+        viewer = self.viewer
         actuator_ids = self.actuator_ids
-
-            # while self.viewer.is_running():
+        dof_ids = self.dof_ids
+        site_id = self.site_id
         step_start = time.time()
 
-        # Set the target position of the end-effector site.
-        # data.mocap_pos[self.mocap_id, 0:2] = self.circle(data.time, 0.1, 0.5, 0.0, 0.5)
+        # Spatial velocity (aka twist).
+        dx = data.mocap_pos[mocap_id] - data.site(site_id).xpos
+        twist[:3] = Kpos * dx / integration_dt
+        mujoco.mju_mat2Quat(site_quat, data.site(site_id).xmat)
+        mujoco.mju_negQuat(site_quat_conj, site_quat)
+        mujoco.mju_mulQuat(error_quat, data.mocap_quat[mocap_id], site_quat_conj)
+        mujoco.mju_quat2Vel(twist[3:], error_quat, 1.0)
+        twist[3:] *= Kori / integration_dt
 
-        # Position error.
-        self.error_pos[:] = data.mocap_pos[self.mocap_id] - data.site(self.site_id).xpos
+        # Jacobian.
+        mujoco.mj_jacSite(model, data, jac[:3], jac[3:], site_id)
 
-        # Orientation error.
-        mujoco.mju_mat2Quat(self.site_quat, data.site(self.site_id).xmat)
-        mujoco.mju_negQuat(self.site_quat_conj, self.site_quat)
-        mujoco.mju_mulQuat(self.error_quat, data.mocap_quat[self.mocap_id], self.site_quat_conj)
-        mujoco.mju_quat2Vel(self.error_ori, self.error_quat, 1.0)
+        # Damped least squares.
+        dq = jac.T @ np.linalg.solve(jac @ jac.T + diag, twist)
 
-        # Get the Jacobian with respect to the end-effector site.
-        mujoco.mj_jacSite(model, data, self.jac[:3], self.jac[3:], self.site_id)
+        # Nullspace control biasing joint velocities towards the home configuration.
+        dq += (eye - np.linalg.pinv(jac) @ jac) @ (Kn * (q0 - data.qpos[dof_ids]))
 
-        # Solve system of equations: J @ dq = error.
-        dq = self.jac.T @ np.linalg.solve(self.jac @ self.jac.T + self.diag, self.error)
-
-        # Scale down joint velocities if they exceed maximum.
-        if max_angvel > 0:
-            dq_abs_max = np.abs(dq).max()
-            if dq_abs_max > max_angvel:
-                dq *= max_angvel / dq_abs_max
+        # Clamp maximum joint velocity.
+        dq_abs_max = np.abs(dq).max()
+        if dq_abs_max > max_angvel:
+            dq *= max_angvel / dq_abs_max
 
         # Integrate joint velocities to obtain joint positions.
-        q = data.qpos.copy()
+        q = data.qpos.copy()  # Note the copy here is important.
         mujoco.mj_integratePos(model, q, dq, integration_dt)
-
-        # Set the control signal.
         np.clip(q, *model.jnt_range.T, out=q)
-        data.ctrl[actuator_ids] = q[dof_ids]
 
-        # Step the simulation.
+        # Set the control signal and step the simulation.
+        data.ctrl[actuator_ids] = q[dof_ids]
         mujoco.mj_step(model, data)
 
-        self.viewer.sync()
+        viewer.sync()
         time_until_next_step = dt - (time.time() - step_start)
         if time_until_next_step > 0:
             time.sleep(time_until_next_step)
 
+
     def set_ee_pos(self, xyz):
+        if xyz is None or (xyz[0] == 0 and xyz[1] == 1 and xyz[2] == 2):
+            return
         self.data.mocap_pos[self.mocap_id] = xyz
         
-
