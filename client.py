@@ -38,6 +38,8 @@ class Teleop:
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
             print("Cannot open camera")
+
+
         with GestureRecognizer.create_from_options(options) as recognizer:
             while True:
                 ret, frame = cap.read()
@@ -86,6 +88,9 @@ class Teleop:
         self._pose = [total_x, total_z, total_y]
         
         # Retrieve gesture
+        print(result.gestures)
+        if len(result.gestures) == 0:
+            return
         gesture = result.gestures[0][0].category_name
         if gesture == "Closed_Fist" or gesture == "Open_Palm":
             self._gesture = gesture  
@@ -101,8 +106,8 @@ if __name__ == "__main__":
                 break
         client.set_ee_pos(teleop.pose)
         client.step()
-        print(teleop.pose)
-        print(teleop.gesture)
+        # print(teleop.pose)
+        # print(teleop.gesture)
 
     teleop.t.join()
 
