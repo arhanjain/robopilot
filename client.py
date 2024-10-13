@@ -57,7 +57,6 @@ class Teleop:
         return self._gesture
 
     def set_gesture(self, result: GestureRecognizerResult, output_image: mp.Image, timestamp_ms: int):
-        print("Results")
         total_x = 0
         total_y = 0
         total_z = 0
