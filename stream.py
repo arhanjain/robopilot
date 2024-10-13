@@ -102,7 +102,7 @@ if __name__ == "__main__":
                 break
         client.set_ee_pos(teleop.pose)
         client.step()
-        print(teleop.pose)
+        # print(teleop.pose)
         print(teleop.gesture)
 
     teleop.t.join()
