@@ -25,7 +25,7 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 class Teleop:
     def __init__(self) -> None:
-        self._gesture = 1 # 1 for open, 0 for close
+        self._gesture = 0 # 1 for open, 0 for close, but reversed
         self._pose = None
         self.frame = None
         self.t = Thread(target=self.launch_pose_tracker)
@@ -83,6 +83,21 @@ class Teleop:
                 solutions.hands.HAND_CONNECTIONS,
                 solutions.drawing_styles.get_default_hand_landmarks_style(),
                 solutions.drawing_styles.get_default_hand_connections_style())
+
+        if total_x == 0 and total_y == 0 and total_z == 0:
+            total_z = 0.3
+            total_x = 0.0
+            total_y = 0.3
+        else:
+            total_x -= 0.5
+            total_y = - (total_y - 1.0)
+            total_z = (max(total_z, 0) * 2e5) ** (1/2)
+            if total_z == 0:
+                total_z = 0.1
+        # x is 0.0 ish to 0.8
+        # z is like 0.0 to 0.1
+        # y is like 0.9
+
         self._pose = [total_z, total_x, total_y]
         
         # Retrieve gesture
@@ -90,16 +105,25 @@ class Teleop:
             return
         gesture = result.gestures[0][0].category_name
         if gesture == "Closed_Fist" or gesture == "Open_Palm":
-            self._gesture = 1 if gesture == "Open_Palm" else 0 
+            self._gesture = 0 if gesture == "Open_Palm" else 1 
 
 def on_press(key):
     if key == keyboard.Key.space:
         reset[0] = True
 
 if __name__ == "__main__":
+
     client = zerorpc.Client()
     client.connect("tcp://127.0.0.1:4242")
     teleop = Teleop()
+
+    # while True:
+    #     if not teleop.frame is None:
+    #         cv2.imshow("test", teleop.frame)
+    #         cv2.waitKey(1)
+    #         if teleop.gesture:
+    #             print(teleop.pose)
+
 
     reset = [False]
     listener = keyboard.Listener(
@@ -115,6 +139,7 @@ if __name__ == "__main__":
             cv2.imshow("test", teleop.frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        print(teleop.pose, teleop.gesture)
         client.step(teleop.pose, teleop.gesture)
     teleop.t.join()
     listener.join()
