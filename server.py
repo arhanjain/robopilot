@@ -8,6 +8,7 @@ import mujoco.viewer
 import numpy as np
 import time
 from threading import Thread
+import zerorpc
 
 # Integration timestep in seconds. This corresponds to the amount of time the joint
 # velocities will be integrated for to obtain the desired joint positions.
@@ -31,7 +32,7 @@ class FrankaSim:
         assert mujoco.__version__ >= "3.1.0", "Please upgrade to mujoco 3.1.0 or later."
 
         # Load the model and data.
-        model = mujoco.MjModel.from_xml_path("./mjctrl/universal_robots_ur5e/scene.xml")
+        model = mujoco.MjModel.from_xml_path("./mjctrl/franka_emika_panda/scene.xml")
         data = mujoco.MjData(model)
         self.data = data
         self.model = model
@@ -166,10 +167,9 @@ class FrankaSim:
 
 
 if __name__ == "__main__":
-    env = FrankaSim()
-
-    while True:
-        env.set_ee_pos(np.array([0.4, 0.1, 0.3]))
-        env.step()
+    
+    server = zerorpc.Server(FrankaSim())
+    server.bind("tcp://0.0.0.0:4242")
+    server.run()
 
 
