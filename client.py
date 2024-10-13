@@ -83,7 +83,7 @@ class Teleop:
                 solutions.hands.HAND_CONNECTIONS,
                 solutions.drawing_styles.get_default_hand_landmarks_style(),
                 solutions.drawing_styles.get_default_hand_connections_style())
-        self._pose = [total_x, total_z, total_y]
+        self._pose = [total_z, total_x, total_y]
         
         # Retrieve gesture
         if len(result.gestures) == 0:

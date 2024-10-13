@@ -23,7 +23,7 @@ class WrappedEnv:
             self.env.set_ee_pos(action)
             self.env.step()
         else:
-            self.env.step(action, ee_state)
+            obs = self.env.step(action, ee_state)["image"]["844212071484"]
         # Update trajectory
         if self.trajectory is None:
             self.trajectory = [[None, action]]

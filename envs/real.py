@@ -17,8 +17,11 @@ class RealWorld:
         self.mini = np.minimum(self.mini, action)
         self.maxi = np.maximum(self.maxi, action)
 
-        print(self.mini,self.maxi)
-        action = action + [np.pi,0,0, 0]
+        # print(self.mini,self.maxi)
+        action = action + [np.pi,0,0, ee_state]
         action = np.array(action)
-        print(action)
-        return self.env.step(action)
+        # print(action)
+        obs = self.env.get_observation()
+        self.env.step(action)
+        return obs
+
