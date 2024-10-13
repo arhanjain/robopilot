@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 import json
 
 from envs.mujoco import MujocoSim
@@ -32,8 +33,10 @@ class WrappedEnv:
     def reset(self):
         # Save tuples of trajectory and end effector state
         res = {"traj": self.trajectory, "ee_states": self.ee_states}
-        with open(f"trajectories/traj{self.traj_num}.pkl", "w") as f:
-            json.dump(res, f)
+        with open(f"trajectories/traj_{self.traj_num}.pkl", "wb") as f:
+            pickle.dump(res, f)
+        # with open(f"trajectories/traj_{self.traj_num}.pkl", "w") as f:
+        #     json.dump(res, f)
         # Reset class variables
         self.env = self.env_class()
         self.trajectory = None

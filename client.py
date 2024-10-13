@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mediapipe as mp
 import cv2
+import pynput
 
 import constants as c
 
@@ -13,6 +14,7 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import zerorpc
 from threading import Thread
+from pynput import keyboard
 
 ### Streaming
 BaseOptions = mp.tasks.BaseOptions
@@ -90,23 +92,30 @@ class Teleop:
         if gesture == "Closed_Fist" or gesture == "Open_Palm":
             self._gesture = 1 if gesture == "Open_Palm" else 0 
 
+def on_press(key):
+    if key == keyboard.Key.space:
+        reset[0] = True
+
 if __name__ == "__main__":
     client = zerorpc.Client()
     client.connect("tcp://127.0.0.1:4242")
     teleop = Teleop()
-    i = 1000
+
+    reset = [False]
+    listener = keyboard.Listener(
+            on_press=on_press)
+    listener.start()
+
     while True:
+        if reset[0]:
+            reset[0] = False
+            client.reset()
+            continue
         if not teleop.frame is None:
             cv2.imshow("test", teleop.frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        # client.set_ee_pos(teleop.pose)
         client.step(teleop.pose, teleop.gesture)
-        # print(teleop.pose)
-        # print(teleop.gesture)
-        i -= 1
-        if i == 0: 
-            break
-    client.reset()
     teleop.t.join()
+    listener.join()
 
