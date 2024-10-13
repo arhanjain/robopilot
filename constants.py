@@ -1,4 +1,5 @@
 NUM_PTS = 21
+TARGET_POSE_IDX = 9
 POSE_PATH = "./weights/hand_landmarker.task"
 GESTURE_PATH = "./weights/gesture_recognizer.task"
 WEBCAM_WIDTH = 1280

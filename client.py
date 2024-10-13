@@ -66,10 +66,9 @@ class Teleop:
         hand_landmarks_list = result.hand_landmarks
         for idx in range(len(hand_landmarks_list)):
             hand_landmarks = hand_landmarks_list[idx]
-            for landmark in hand_landmarks:
-                total_x += landmark.x
-                total_y += landmark.y
-                total_z += landmark.z
+            total_x = hand_landmarks[c.TARGET_POSE_IDX].x
+            total_y = hand_landmarks[c.TARGET_POSE_IDX].y
+            total_z = hand_landmarks[c.TARGET_POSE_IDX].z
             # Draw the hand landmarks.
             hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
             hand_landmarks_proto.landmark.extend([
@@ -82,9 +81,6 @@ class Teleop:
                 solutions.hands.HAND_CONNECTIONS,
                 solutions.drawing_styles.get_default_hand_landmarks_style(),
                 solutions.drawing_styles.get_default_hand_connections_style())
-            total_x = (total_x / c.NUM_PTS) # * c.WEBCAM_WIDTH
-            total_y = (total_y / c.NUM_PTS) # * c.WEBCAM_HEIGHT
-            total_z = total_z / c.NUM_PTS
         self._pose = [total_x, total_z, total_y]
         
         # Retrieve gesture
