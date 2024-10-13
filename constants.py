@@ -1,5 +1,6 @@
 NUM_PTS = 21
-MODEL_PATH = "./hand_landmarker.task"
+POSE_PATH = "./hand_landmarker.task"
+GESTURE_PATH = "./gesture_recognition.task"
 WEBCAM_WIDTH = 1280
 WEBCAM_HEIGHT = 720
 WEBCAM_FOCAL = 500
