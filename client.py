@@ -23,7 +23,7 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 class Teleop:
     def __init__(self) -> None:
-        self._gesture = None
+        self._gesture = 1 # 1 for open, 0 for close
         self._pose = None
         self.frame = None
         self.t = Thread(target=self.launch_pose_tracker)
@@ -84,26 +84,29 @@ class Teleop:
         self._pose = [total_x, total_z, total_y]
         
         # Retrieve gesture
-        print(result.gestures)
         if len(result.gestures) == 0:
             return
         gesture = result.gestures[0][0].category_name
         if gesture == "Closed_Fist" or gesture == "Open_Palm":
-            self._gesture = gesture  
+            self._gesture = 1 if gesture == "Open_Palm" else 0 
 
 if __name__ == "__main__":
     client = zerorpc.Client()
     client.connect("tcp://127.0.0.1:4242")
     teleop = Teleop()
+    i = 1000
     while True:
         if not teleop.frame is None:
             cv2.imshow("test", teleop.frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        client.set_ee_pos(teleop.pose)
-        client.step()
+        # client.set_ee_pos(teleop.pose)
+        client.step(teleop.pose, teleop.gesture)
         # print(teleop.pose)
         # print(teleop.gesture)
-
+        i -= 1
+        if i == 0: 
+            break
+    client.reset()
     teleop.t.join()
 
