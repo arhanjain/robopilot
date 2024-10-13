@@ -1,3 +1,6 @@
 [submodule "mjctrl"]
 	path = mjctrl
 	url = git@github.com:kevinzakka/mjctrl.git
+[submodule "droid"]
+	path = droid
+	url = git@github.com:arhanjain/droid.git
